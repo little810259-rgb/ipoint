@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="zh-TW" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>學生點數存摺</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+    .student-tab {
+      transition: all 0.3s ease;
+    }
+    .student-tab.active {
+      transform: translateY(-2px);
+    }
+    .record-item {
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    .balance-display {
+      background: linear-gradient(135deg, var(--primary-action) 0%, var(--secondary-action) 100%);
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+ </head>
+ <body class="h-full bg-amber-50">
+  <div id="app-wrapper" class="h-full w-full overflow-auto">
+   <div class="min-h-full w-full max-w-4xl mx-auto p-4 md:p-6"><!-- Header -->
+    <header class="text-center mb-6">
+     <h1 id="app-title" class="text-2xl md:text-3xl font-bold text-amber-900 mb-2">🏦 學生點數存摺</h1>
+     <p class="text-amber-700 text-sm">輕鬆管理學生的獎勵點數</p>
+    </header><!-- Student Tabs -->
+    <div class="flex flex-wrap gap-2 mb-6 justify-center"><button onclick="selectStudent(0)" id="tab-0" class="student-tab flex flex-col items-center px-4 py-2 rounded-full font-medium transition-all bg-amber-600 text-white shadow-md active"> <span id="tab-name-0">小明</span> <span id="tab-points-0" class="text-xs mt-1 opacity-90">0 點</span> </button> <button onclick="selectStudent(1)" id="tab-1" class="student-tab flex flex-col items-center px-4 py-2 rounded-full font-medium transition-all bg-white text-amber-800 hover:bg-amber-100"> <span id="tab-name-1">小華</span> <span id="tab-points-1" class="text-xs mt-1 opacity-70">0 點</span> </button> <button onclick="selectStudent(2)" id="tab-2" class="student-tab flex flex-col items-center px-4 py-2 rounded-full font-medium transition-all bg-white text-amber-800 hover:bg-amber-100"> <span id="tab-name-2">安安</span> <span id="tab-points-2" class="text-xs mt-1 opacity-70">0 點</span> </button> <button onclick="selectStudent(3)" id="tab-3" class="student-tab flex flex-col items-center px-4 py-2 rounded-full font-medium transition-all bg-white text-amber-800 hover:bg-amber-100"> <span id="tab-name-3">筑筑</span> <span id="tab-points-3" class="text-xs mt-1 opacity-70">0 點</span> </button>
+    </div><!-- Balance Card -->
+    <div class="balance-display rounded-2xl p-6 mb-6 text-white shadow-lg" style="--primary-action: #d97706; --secondary-action: #ea580c;">
+     <div class="flex items-center justify-between">
+      <div>
+       <p class="text-amber-100 text-sm mb-1">當前總點數</p>
+       <p id="total-balance" class="text-4xl md:text-5xl font-bold">0</p>
+      </div>
+      <div class="text-6xl opacity-80">
+       💰
+      </div>
+     </div>
+    </div><!-- Action Buttons -->
+    <div class="grid grid-cols-2 gap-4 mb-6"><button onclick="showAddForm('add')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2"> <span class="text-xl">➕</span> 新增點數 </button> <button onclick="showAddForm('redeem')" class="bg-rose-500 hover:bg-rose-600 text-white font-medium py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2"> <span class="text-xl">🎁</span> 兌換獎品 </button>
+    </div><!-- Add/Redeem Form -->
+    <div id="form-container" class="hidden bg-white rounded-2xl p-5 mb-6 shadow-lg border-2 border-amber-200">
+     <h3 id="form-title" class="text-lg font-bold text-amber-900 mb-4">新增點數</h3>
+     <form id="points-form" onsubmit="handleFormSubmit(event)">
+      <div class="mb-4"><label for="amount-input" class="block text-amber-800 text-sm font-medium mb-2">點數數量</label> <input type="number" id="amount-input" min="1" required class="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:border-amber-500 focus:outline-none text-lg" placeholder="輸入點數">
+      </div>
+      <div class="mb-4"><label for="reason-input" class="block text-amber-800 text-sm font-medium mb-2">事��說明</label> <input type="text" id="reason-input" required class="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:border-amber-500 focus:outline-none" placeholder="例：完成作業、兌換文具">
+      </div>
+      <div class="flex gap-3"><button type="button" onclick="hideForm()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-3 rounded-xl transition-all"> 取消 </button> <button type="submit" id="submit-btn" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium py-3 rounded-xl transition-all"> 確認 </button>
+      </div>
+     </form>
+     <p id="error-message" class="hidden text-rose-500 text-sm mt-3 text-center"></p>
+    </div><!-- Records List -->
+    <div class="bg-white rounded-2xl p-5 shadow-lg border-2 border-amber-200">
+     <h3 class="text-lg font-bold text-amber-900 mb-4 flex items-center gap-2">📋 點數紀錄</h3>
+     <div id="records-list" class="space-y-3">
+      <p id="empty-message" class="text-center text-amber-400 py-8">尚無任何紀錄</p>
+     </div>
+    </div><!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+     <div class="bg-white rounded-xl p-6 shadow-xl flex items-center gap-3">
+      <div class="animate-spin w-6 h-6 border-3 border-amber-600 border-t-transparent rounded-full"></div><span class="text-amber-900">處理中...</span>
+     </div>
+    </div><!-- Delete Confirmation -->
+    <div id="delete-confirm" class="hidden fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4">
+     <div class="bg-white rounded-2xl p-6 shadow-xl max-w-sm w-full">
+      <h4 class="text-lg font-bold text-amber-900 mb-3">確認刪除</h4>
+      <p class="text-amber-700 mb-4">確定要刪除這筆紀錄嗎？</p>
+      <div class="flex gap-3"><button onclick="cancelDelete()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 rounded-xl">取消</button> <button onclick="confirmDelete()" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-medium py-2 rounded-xl">刪���</button>
+      </div>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+    // Default configuration
+    const defaultConfig = {
+      app_title: '🏦 學生點數存摺',
+      student_1_name: '小祐',
+      student_2_name: '小豪',
+      student_3_name: '安安',
+      student_4_name: '筑筑',
+      background_color: '#fffbeb',
+      surface_color: '#ffffff',
+      text_color: '#78350f',
+      primary_action: '#d97706',
+      secondary_action: '#ea580c'
+    };
+
+    let config = { ...defaultConfig };
+    let allRecords = [];
+    let currentStudentId = 0;
+    let currentFormType = 'add';
+    let pendingDeleteRecord = null;
+
+    // Element SDK initialization
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (newConfig) => {
+          config = { ...defaultConfig, ...newConfig };
+          applyConfig();
+        },
+        mapToCapabilities: (cfg) => ({
+          recolorables: [
+            {
+              get: () => cfg.background_color || defaultConfig.background_color,
+              set: (v) => { cfg.background_color = v; window.elementSdk.setConfig({ background_color: v }); }
+            },
+            {
+              get: () => cfg.surface_color || defaultConfig.surface_color,
+              set: (v) => { cfg.surface_color = v; window.elementSdk.setConfig({ surface_color: v }); }
+            },
+            {
+              get: () => cfg.text_color || defaultConfig.text_color,
+              set: (v) => { cfg.text_color = v; window.elementSdk.setConfig({ text_color: v }); }
+            },
+            {
+              get: () => cfg.primary_action || defaultConfig.primary_action,
+              set: (v) => { cfg.primary_action = v; window.elementSdk.setConfig({ primary_action: v }); }
+            },
+            {
+              get: () => cfg.secondary_action || defaultConfig.secondary_action,
+              set: (v) => { cfg.secondary_action = v; window.elementSdk.setConfig({ secondary_action: v }); }
+            }
+          ],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (cfg) => new Map([
+          ['app_title', cfg.app_title || defaultConfig.app_title],
+          ['student_1_name', cfg.student_1_name || defaultConfig.student_1_name],
+          ['student_2_name', cfg.student_2_name || defaultConfig.student_2_name],
+          ['student_3_name', cfg.student_3_name || defaultConfig.student_3_name],
+          ['student_4_name', cfg.student_4_name || defaultConfig.student_4_name]
+        ])
+      });
+    }
+
+    function applyConfig() {
+      const title = config.app_title || defaultConfig.app_title;
+      const bgColor = config.background_color || defaultConfig.background_color;
+      const textColor = config.text_color || defaultConfig.text_color;
+      const primaryAction = config.primary_action || defaultConfig.primary_action;
+      const secondaryAction = config.secondary_action || defaultConfig.secondary_action;
+
+      document.getElementById('app-title').textContent = title;
+      document.body.style.backgroundColor = bgColor;
+      document.getElementById('app-title').style.color = textColor;
+
+      // Update student names
+      document.getElementById('tab-name-0').textContent = config.student_1_name || defaultConfig.student_1_name;
+      document.getElementById('tab-name-1').textContent = config.student_2_name || defaultConfig.student_2_name;
+      document.getElementById('tab-name-2').textContent = config.student_3_name || defaultConfig.student_3_name;
+      document.getElementById('tab-name-3').textContent = config.student_4_name || defaultConfig.student_4_name;
+
+      // Update balance card gradient
+      const balanceCard = document.querySelector('.balance-display');
+      balanceCard.style.setProperty('--primary-action', primaryAction);
+      balanceCard.style.setProperty('--secondary-action', secondaryAction);
+      balanceCard.style.background = `linear-gradient(135deg, ${primaryAction} 0%, ${secondaryAction} 100%)`;
+
+      // Update active tab color
+      updateTabs();
+    }
+
+    function getStudentName(id) {
+      const names = [
+        config.student_1_name || defaultConfig.student_1_name,
+        config.student_2_name || defaultConfig.student_2_name,
+        config.student_3_name || defaultConfig.student_3_name,
+        config.student_4_name || defaultConfig.student_4_name
+      ];
+      return names[id] || `學生${id + 1}`;
+    }
+
+    function selectStudent(id) {
+      currentStudentId = id;
+      updateTabs();
+      renderRecords();
+      hideForm();
+    }
+
+    function updateTabs() {
+      const primaryAction = config.primary_action || defaultConfig.primary_action;
+      for (let i = 0; i < 4; i++) {
+        const tab = document.getElementById(`tab-${i}`);
+        if (i === currentStudentId) {
+          tab.classList.add('active');
+          tab.style.backgroundColor = primaryAction;
+          tab.style.color = '#ffffff';
+          tab.classList.remove('hover:bg-amber-100');
+        } else {
+          tab.classList.remove('active');
+          tab.style.backgroundColor = '#ffffff';
+          tab.style.color = config.text_color || defaultConfig.text_color;
+          tab.classList.add('hover:bg-amber-100');
+        }
+      }
+    }
+
+    function showAddForm(type) {
+      currentFormType = type;
+      const formContainer = document.getElementById('form-container');
+      const formTitle = document.getElementById('form-title');
+      const submitBtn = document.getElementById('submit-btn');
+      const amountInput = document.getElementById('amount-input');
+      const reasonInput = document.getElementById('reason-input');
+
+      formContainer.classList.remove('hidden');
+      amountInput.value = '';
+      reasonInput.value = '';
+      document.getElementById('error-message').classList.add('hidden');
+
+      if (type === 'add') {
+        formTitle.textContent = '➕ 新增點數';
+        submitBtn.textContent = '確認新增';
+        submitBtn.className = 'flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 rounded-xl transition-all';
+        reasonInput.placeholder = '例：完成作業、表現優良';
+      } else {
+        formTitle.textContent = '🎁 兌換獎品';
+        submitBtn.textContent = '確認兌換';
+        submitBtn.className = 'flex-1 bg-rose-500 hover:bg-rose-600 text-white font-medium py-3 rounded-xl transition-all';
+        reasonInput.placeholder = '例：兌換文具、兌換點心';
+      }
+    }
+
+    function hideForm() {
+      document.getElementById('form-container').classList.add('hidden');
+    }
+
+    function showLoading() {
+      document.getElementById('loading-overlay').classList.remove('hidden');
+    }
+
+    function hideLoading() {
+      document.getElementById('loading-overlay').classList.add('hidden');
+    }
+
+    function showError(message) {
+      const errorEl = document.getElementById('error-message');
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+    }
+
+    async function handleFormSubmit(event) {
+      event.preventDefault();
+      
+      const amount = parseInt(document.getElementById('amount-input').value);
+      const reason = document.getElementById('reason-input').value.trim();
+
+      if (!amount || amount <= 0) {
+        showError('請輸入有效的點數數量');
+        return;
+      }
+
+      if (!reason) {
+        showError('請輸入事由說明');
+        return;
+      }
+
+      // Check balance for redemption
+      if (currentFormType === 'redeem') {
+        const currentBalance = calculateBalance(currentStudentId);
+        if (amount > currentBalance) {
+          showError(`點數不足！目前餘額為 ${currentBalance} 點`);
+          return;
+        }
+      }
+
+      // Check record limit
+      if (allRecords.length >= 999) {
+        showError('已達到記錄上限（999筆），請刪除舊記錄後再試');
+        return;
+      }
+
+      showLoading();
+
+      const record = {
+        student_id: currentStudentId,
+        type: currentFormType,
+        amount: amount,
+        reason: reason,
+        created_at: new Date().toISOString()
+      };
+
+      if (window.dataSdk) {
+        const result = await window.dataSdk.create(record);
+        if (!result.isOk) {
+          hideLoading();
+          showError('儲存失敗，請稍後再試');
+          return;
+        }
+      }
+
+      hideLoading();
+      hideForm();
+    }
+
+    function calculateBalance(studentId) {
+      return allRecords
+        .filter(r => r.student_id === studentId)
+        .reduce((sum, r) => {
+          return r.type === 'add' ? sum + r.amount : sum - r.amount;
+        }, 0);
+    }
+
+    function formatDate(isoString) {
+      const date = new Date(isoString);
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${month}/${day} ${hours}:${minutes}`;
+    }
+
+    function renderRecords() {
+      const container = document.getElementById('records-list');
+      const emptyMessage = document.getElementById('empty-message');
+      const studentRecords = allRecords
+        .filter(r => r.student_id === currentStudentId)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      // Update balance
+      const balance = calculateBalance(currentStudentId);
+      document.getElementById('total-balance').textContent = balance.toLocaleString();
+      
+      // Update all student tabs with their points
+      for (let i = 0; i < 4; i++) {
+        const studentBalance = calculateBalance(i);
+        document.getElementById(`tab-points-${i}`).textContent = `${studentBalance} 點`;
+      }
+
+      if (studentRecords.length === 0) {
+        emptyMessage.classList.remove('hidden');
+        // Remove all record items
+        const existingItems = container.querySelectorAll('.record-item');
+        existingItems.forEach(item => item.remove());
+        return;
+      }
+
+      emptyMessage.classList.add('hidden');
+
+      // Track existing items
+      const existingItemsMap = new Map();
+      container.querySelectorAll('.record-item').forEach(item => {
+        existingItemsMap.set(item.dataset.id, item);
+      });
+
+      // Update or create items
+      studentRecords.forEach((record, index) => {
+        const recordId = record.__backendId;
+        const isAdd = record.type === 'add';
+        
+        if (existingItemsMap.has(recordId)) {
+          // Update existing item
+          const item = existingItemsMap.get(recordId);
+          updateRecordItem(item, record, isAdd);
+          existingItemsMap.delete(recordId);
+        } else {
+          // Create new item
+          const item = createRecordItem(record, isAdd);
+          if (index === 0) {
+            container.insertBefore(item, container.firstChild);
+          } else {
+            const prevRecord = studentRecords[index - 1];
+            const prevItem = container.querySelector(`[data-id="${prevRecord.__backendId}"]`);
+            if (prevItem && prevItem.nextSibling) {
+              container.insertBefore(item, prevItem.nextSibling);
+            } else {
+              container.appendChild(item);
+            }
+          }
+        }
+      });
+
+      // Remove deleted items
+      existingItemsMap.forEach(item => item.remove());
+    }
+
+    function createRecordItem(record, isAdd) {
+      const item = document.createElement('div');
+      item.className = 'record-item flex items-center justify-between p-3 rounded-xl border-2 ' +
+        (isAdd ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200');
+      item.dataset.id = record.__backendId;
+
+      item.innerHTML = `
+        <div class="flex items-center gap-3">
+          <div class="text-2xl">${isAdd ? '💵' : '🎁'}</div>
+          <div>
+            <p class="font-medium text-gray-800">${escapeHtml(record.reason)}</p>
+            <p class="text-xs text-gray-500">${formatDate(record.created_at)}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-lg ${isAdd ? 'text-emerald-600' : 'text-rose-600'}">
+            ${isAdd ? '+' : '-'}${record.amount}
+          </span>
+          <button onclick="requestDelete('${record.__backendId}')" class="p-1 text-gray-400 hover:text-rose-500 transition-colors">
+            🗑️
+          </button>
+        </div>
+      `;
+
+      return item;
+    }
+
+    function updateRecordItem(item, record, isAdd) {
+      const reasonEl = item.querySelector('.font-medium');
+      const dateEl = item.querySelector('.text-xs');
+      const amountEl = item.querySelector('.font-bold');
+
+      if (reasonEl) reasonEl.textContent = record.reason;
+      if (dateEl) dateEl.textContent = formatDate(record.created_at);
+      if (amountEl) amountEl.textContent = `${isAdd ? '+' : '-'}${record.amount}`;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function requestDelete(recordId) {
+      pendingDeleteRecord = allRecords.find(r => r.__backendId === recordId);
+      if (pendingDeleteRecord) {
+        document.getElementById('delete-confirm').classList.remove('hidden');
+      }
+    }
+
+    function cancelDelete() {
+      pendingDeleteRecord = null;
+      document.getElementById('delete-confirm').classList.add('hidden');
+    }
+
+    async function confirmDelete() {
+      if (!pendingDeleteRecord || !window.dataSdk) {
+        cancelDelete();
+        return;
+      }
+
+      showLoading();
+      document.getElementById('delete-confirm').classList.add('hidden');
+
+      const result = await window.dataSdk.delete(pendingDeleteRecord);
+      
+      hideLoading();
+      
+      if (!result.isOk) {
+        // Show inline error
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'fixed top-4 right-4 bg-rose-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        errorDiv.textContent = '刪除失敗，請稍後再試';
+        document.body.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 3000);
+      }
+
+      pendingDeleteRecord = null;
+    }
+
+    // Data SDK handler
+    const dataHandler = {
+      onDataChanged(data) {
+        allRecords = data;
+        renderRecords();
+      }
+    };
+
+    // Initialize
+    async function init() {
+      if (window.dataSdk) {
+        const result = await window.dataSdk.init(dataHandler);
+        if (!result.isOk) {
+          console.error('Failed to initialize data SDK');
+        }
+      }
+      applyConfig();
+    }
+
+    init();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c0b58343696b3a4',t:'MTc2ODg3ODI2Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
